@@ -12,11 +12,30 @@ module wecastle::wecastle {
     use wecastle::weather as weather_oracle;
     use std::ascii;
     use wecastle::castoken::{CASTOKEN, mint};
+    // use wecastle::mission::{GameMission, Work, new, mint_work};
     use sui::pay::{Self};
+    use sui::display;
+
     
     const NOT_A_CORBA_PLAYER: u64 = 1;
     const ENOBALANCE: u64 = 0;
+    const INVALID_ID: u64 = 0;
+    const ENotDone: u64 = 1;
+    const EClaim: u64 = 2;
 
+
+
+    public struct Work has key, store {
+        id: UID,
+        reward: u64,
+        done: bool,
+        process: u16,
+
+    }
+
+    public struct GetMissionEvent has drop, copy {
+        missions: vector<ID>
+    }   
 
     //admin 
     public struct AdminCap has key, store {
@@ -31,13 +50,24 @@ module wecastle::wecastle {
         id: UID,
         version: String,
         description: String,
-        balance: Balance<CASTOKEN>
+        balance: Balance<CASTOKEN>,
+    }
+
+    public struct LeaderBoard has key {
+        id: UID,
+        min_score: u64,
+
     }
 
     public struct CorbaPlayer has key, store {
         id: UID,
-        score: u64
+        score: u64,
+        works: vector<ID>,
     }
+
+    
+
+    //vec <string>
 
 
     public struct LoadPlayerEvent has copy, drop {
@@ -78,18 +108,37 @@ module wecastle::wecastle {
     {
         //hero policy
         let publisher = package::claim<WECASTLE>(otw, ctx);
+        let keys = vector[
+            b"name".to_string(),
+            b"description".to_string(),
+            b"image_url".to_string(),
+            b"type".to_string()
+        ];
+
+        let values = vector[
+            b"{name}".to_string(),
+            b"{description}".to_string(),
+            b"{url}".to_string(),
+            b"{type}".to_string(),
+        ];
+
+        let mut display = display::new_with_fields<Hero>(
+            &publisher, keys, values, ctx
+        );
+        display::update_version(&mut display);
 
         let admin_cap = AdminCap {
             id: object::new(ctx)
         };
+        transfer::public_transfer(display, tx_context::sender(ctx));
         transfer::share_object(CorbaGameFi {
             id: object::new(ctx),
             version: string::utf8(b"1.0"),
             description: string::utf8(b"Corba game"),
-            balance: balance::zero<CASTOKEN>()
+            balance: balance::zero<CASTOKEN>(),
         });
-        transfer::public_transfer(admin_cap, @0x8d9f68271c525e6a35d75bc7afb552db1bf2f44bb65e860b356e08187cb9fa3d);
-        transfer::public_transfer(publisher, @0x8d9f68271c525e6a35d75bc7afb552db1bf2f44bb65e860b356e08187cb9fa3d);
+        transfer::public_transfer(admin_cap, tx_context::sender(ctx));
+        transfer::public_transfer(publisher, tx_context::sender(ctx));
     }
 
 
@@ -100,10 +149,22 @@ module wecastle::wecastle {
         let owner_cap = OwnerCap {
             id: object::new(ctx)
         };
-        let player:  CorbaPlayer = CorbaPlayer {
+        let mut player:  CorbaPlayer = CorbaPlayer {
             id: object::new(ctx),
-            score: 0
+            score: 0,
+            works: vector::empty()
         };
+        // let mut mission = new(ctx);
+        // mint_work(&mut mission, 0, 6000000, ctx);
+        // mint_work(&mut mission, 1, 8000000, ctx);
+        // mint_work(&mut mission, 2, 8000000, ctx);
+        // mint_work(&mut mission, 3, 10000000, ctx);
+        // mint_work(&mut mission, 4, 1300000, ctx);
+        // dof::add(
+        //     &mut player.id,
+        //     string::utf8(b"missions"),
+        //     mission
+        // );
         event::emit(LoadPlayerEvent {
             id: object::uid_to_inner(&player.id),
             score: 0
@@ -113,6 +174,8 @@ module wecastle::wecastle {
             object::id_from_address(tx_context::sender(ctx)), 
             player);
         transfer::public_transfer(owner_cap, tx_context::sender(ctx));
+        // init_mission(corbaGameFi, ctx);
+        init_mission(corbaGameFi, ctx);
     } 
 
     public entry fun get_player_data(
@@ -207,7 +270,6 @@ module wecastle::wecastle {
         });
     }
 
-
     public entry fun update_score(
         _score: u64,
         corbaGameFi: &mut CorbaGameFi,
@@ -261,6 +323,113 @@ module wecastle::wecastle {
         transfer::public_transfer(reward, sender);
         player.score = player.score + amount;
     }
+
+
+    public entry fun init_mission(
+        game : &mut CorbaGameFi,
+        ctx: &mut TxContext) {
+        // let mut mission = GameMission {
+        //     id: object::new(ctx),
+        //     works: vector::empty(),
+        //     total_works: 0
+        // };
+        // mint_work(game, 0, 6000000, ctx);
+        // mint_work(game, 1, 8000000, ctx);
+        // mint_work(game, 2, 8000000, ctx);
+        // mint_work(game, 3, 10000000, ctx);
+        // mint_work(game, 4, 1300000, ctx);
+
+        let mut player = dof::borrow_mut<ID, CorbaPlayer>(
+            &mut game.id,
+            object::id_from_address(tx_context::sender(ctx))
+        );
+
+        let new_work0 = Work {
+            id: object::new(ctx),
+            reward: 4000000,
+            done: false,
+            process: 0
+        };
+        let new_work1 = Work {
+            id: object::new(ctx),
+            reward: 4000000,
+            done: false,
+            process: 0
+        };
+        let new_work2 = Work {
+            id: object::new(ctx),
+            reward: 6000000,
+            done: false,
+            process: 0
+        };
+        let new_work3 = Work {
+            id: object::new(ctx),
+            reward: 11000000,
+            done: false,
+            process: 0
+        };
+        let new_work4 = Work {
+            id: object::new(ctx),
+            reward: 14000000,
+            done: false,
+            process: 0
+        };
+        vector::insert<ID>(&mut player.works, object::uid_to_inner(&new_work0.id), 0);
+        vector::insert<ID>(&mut player.works, object::uid_to_inner(&new_work1.id), 1);
+        vector::insert<ID>(&mut player.works, object::uid_to_inner(&new_work2.id), 2);
+        vector::insert<ID>(&mut player.works, object::uid_to_inner(&new_work3.id), 3);
+        vector::insert<ID>(&mut player.works, object::uid_to_inner(&new_work4.id), 4);
+        transfer::public_transfer(new_work0, tx_context::sender(ctx));
+        transfer::public_transfer(new_work1, tx_context::sender(ctx));
+        transfer::public_transfer(new_work2, tx_context::sender(ctx));
+        transfer::public_transfer(new_work3, tx_context::sender(ctx));
+        transfer::public_transfer(new_work4, tx_context::sender(ctx));
+    }
+
+    // public fun mint_work(
+    //     _game: &mut CorbaGameFi, 
+    //     _work_id: u64, 
+    //     _reward: u64, 
+    //     ctx: &mut TxContext) {
+
+    //     let mut player = dof::borrow_mut<ID, CorbaPlayer>(&mut _game.id, object::id_from_address(tx_context::sender(ctx)));
+    //     let mut missions = dof::borrow_mut<String, GameMission>(&mut player.id, string::utf8(b"missions"));
+
+    //     let new_work = Work {
+    //         id: object::new(ctx),
+    //         reward: _reward,
+    //         done: false,
+    //         process: 0
+    //     };
+    //     let index = missions.total_works;
+    //     vector::insert<ID>(&mut missions.works, object::uid_to_inner(&new_work.id) ,index);
+    //     missions.total_works = missions.total_works + 1;
+    //     transfer::public_transfer(new_work, tx_context::sender(ctx));
+    // }
+
+
+    public entry fun claim_reward(
+        mut _mission:  Work,
+        _game: &mut CorbaGameFi,
+        ctx: &mut TxContext
+    ) {
+        assert!(_mission.process == 100, ENotDone);
+        assert!(!_mission.done, EClaim);
+        claim(_mission.reward, _game, ctx);
+        _mission.done = true;
+        transfer::public_transfer(_mission, tx_context::sender(ctx));
+    }
+
+    public entry fun update_process(
+        mut _mission:  Work, 
+        _new_process: u16,
+        ctx: &mut TxContext
+    ) {
+
+        _mission.process = _new_process;
+        transfer::public_transfer(_mission, tx_context::sender(ctx));
+    }
+
     
     #[test_only]
     public fun mint_hero_for_test(
@@ -287,6 +456,10 @@ module wecastle::wecastle {
             url::new_unsafe_from_bytes(_url),
             ctx
         )
+    }
+
+    public fun score(player: &CorbaPlayer): &u64 {
+        &player.score
     }
 
     
